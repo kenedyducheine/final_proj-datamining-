@@ -1,8 +1,58 @@
+
+```{r}
+install.packages("lubridate")
+```
+
+
 ```{r}
 library(ggplot2)
+library(arules)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+```
+
+```{r}
+#link = https://www.kaggle.com/datasets/deepshah16/song-lyrics-dataset/data 
+artist_names <- list.files(path = "FILE PATH", pattern = "\\.csv$", full.names = TRUE)
+
+df_list <- list()
+
+for (file in artist_names) {
+  df <- read.csv(file, strip.white=TRUE)
+  df <- df[, !names(df) %in% "X"]
+  df_list[[length(df_list) + 1]] <- df
+}
+
+artist_df <- do.call(rbind, df_list)
 
 
-
+#link = https://www.kaggle.com/datasets/arnavvvvv/spotify-music?resource=download
+pop_songs <- as.data.frame(Popular_Spotify_Songs)
+names(pop_songs)[1] <- "Title"
+names(pop_songs)[2] <- "Artist"
 
 ```
+
+```{r}
+
+pop_songs$Artist <- gsub("Beyonc", "Beyoncé", pop_songs$Artist)
+pop_songs$Artist <- gsub("<ef><bf>", "", pop_songs$Artist)
+
+songs <- merge(pop_songs, artist_df, by = "Title", all = FALSE)
+songs <- select(songs,c("Title", "Artist.y", "Date", "bpm", "key", "valence_%", "Lyric"))
+
+songs <- songs %>% 
+  mutate(Date = as.Date(Date)) %>%
+  mutate(Year = year(Date), 
+         Month = month(Date), 
+         Day = day(Date))
+
+
+colnames(songs) <- c("Title","Artist", "Date","BPM", "Key", "Valence", "Lyrics", "Year", "Month","Day")
+songs <- select(songs,c("Title", "Artist", "Year","Month","Day", "Lyrics", "BPM", "Key", "Valence"))
+songs <- na.omit(songs)
+
+```
+
 
