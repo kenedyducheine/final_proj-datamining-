@@ -1,0 +1,142 @@
+```{r}
+
+```
+
+```{r}
+#install.packages("lubridate")
+```
+
+
+```{r}
+
+library(ggplot2)
+library(arules)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+#add wordcloud
+library(wordcloud)
+
+```
+
+```{r}
+#link = https://www.kaggle.com/datasets/deepshah16/song-lyrics-dataset/data 
+artist_names <- list.files(path = "/Users/frey/Downloads/final project data & text mining/artist_data/csv/", pattern = "\\.csv$", full.names = TRUE)
+
+df_list <- list()
+
+for (file in artist_names) {
+  df <- read.csv(file, strip.white=TRUE)
+  df <- df[, !names(df) %in% "X"]
+  df_list[[length(df_list) + 1]] <- df
+}
+
+artist_df <- do.call(rbind, df_list)
+
+
+#link = https://www.kaggle.com/datasets/arnavvvvv/spotify-music?resource=download
+Popular_Spotify_Songs <- read_csv("~/Downloads/Popular_Spotify_Songs.csv")
+pop_songs <- as.data.frame(Popular_Spotify_Songs)
+names(pop_songs)[1] <- "Title"
+names(pop_songs)[2] <- "Artist"
+pop_songs$streams <-as.numeric(pop_songs$streams)
+
+```
+
+```{r}
+
+pop_songs$Artist <- gsub("Beyonc", "Beyoncé", pop_songs$Artist)
+pop_songs$Artist <- gsub("<ef><bf>", "", pop_songs$Artist)
+
+#eliminate NA's from dataframe
+pop_songs <-na.omit(pop_songs)
+
+songs <- merge(pop_songs, artist_df, by = "Title", all = FALSE)
+
+#add streams to check for popularity across all platforms
+songs <- select(songs,c("Title", "Artist.y", "Date", "bpm", "key", "valence_%","streams", "Lyric"))
+
+songs <- songs %>% 
+  mutate(Date = as.Date(Date)) %>%
+  mutate(Year = year(Date), 
+         Month = month(Date), 
+         Day = day(Date))
+
+#add streams to songs col names 
+colnames(songs) <- c("Title","Artist", "Date","BPM", "Key", "Valence","Streams", "Lyrics", "Year", "Month","Day")
+songs <- select(songs,c("Title", "Artist", "Year","Month","Day", "Lyrics", "BPM", "Key", "Valence","Streams"))
+songs <- na.omit(songs)
+
+```
+
+```{r,"wordcloud}
+#create word cloud for artist and frequency:the number of popular songs they have
+artist_freq <- table(pop_songs$Artist)
+artist_freq_df <- as.data.frame(artist_freq)
+names(artist_freq_df) <- c("Artist", "Frequency")
+wordcloud(words = artist_freq_df$Artist, freq = artist_freq_df$Frequency, max.words = 50, colors = brewer.pal(12, "Paired"), scale=c(2, 1))
+
+
+#create word cloud for artist and streams           
+wordcloud(words = pop_songs$Artist, freq = pop_songs$streams,max.words = 50,scale=c(2, .05), colors = brewer.pal(12, "Paired"))
+
+```
+
+```{r, "shiny app"}
+library(shiny)
+ui <- fluidPage(
+  titlePanel("songs"),
+  sidebarLayout(
+    sidebarPanel(
+      #select variables for y-axis
+      selectInput(inputId = "y",
+                  label = "Y-axis",
+                  choices = c("Title", "Artist", "Year", "Month", "Day", "BPM", "Key","Valence", "Streams"),
+                  selected = "Streams"),
+      
+      #Select variables for x-axis        
+      selectInput(inputId = "x",
+                  label = "X-axis",
+                  choices = c("Title", "Artist", "Year", "Month", "Day", "BPM", "Key","Valence", "Streams"),
+                  selected = "Month"),
+      
+      #Set alpha level
+      sliderInput(inputId = "alpha",
+                label = "Alpha",
+                min = 0, max = 1,
+                value = 0.5),
+      
+      #select variable for color
+      selectInput(inputId = "color",
+                  label = "Color by: ",
+                  choices = c("Title", "Artist", "Year", "Month", "Day", "BPM", "Key","Valence", "Streams"),
+                  selected = "Key"),
+      
+       #select variable for size
+      selectInput(inputId = "size",
+                  label = "Size by: ",
+                  choices = c("Title", "Artist", "Year", "Month", "Day", "BPM", "Key","Valence", "Streams"),
+                  selected = "Valence"),
+      
+    
+    ),
+  #Output: Show scatterplot
+  mainPanel(
+      plotOutput(outputId = "scatterplot"))))
+
+```
+
+```{r, "server"}
+server <- function(input, output) {
+    output$scatterplot <- renderPlot({
+      ggplot(songs, aes_string(x = input$x, y = input$y, color = input$color, size = input$size)) +
+            geom_point(alpha = input$alpha)
+      })
+}
+```
+
+```{r,"deploy server"}
+
+shinyApp(ui = ui, server = server)
+
+```
