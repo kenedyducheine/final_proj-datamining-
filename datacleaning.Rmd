@@ -1,6 +1,7 @@
 
 ```{r}
 install.packages("lubridate")
+install.packages("stringr")
 ```
 
 
@@ -10,6 +11,8 @@ library(arules)
 library(dplyr)
 library(tidyverse)
 library(lubridate)
+library(stringr)
+
 ```
 
 ```{r}
@@ -35,12 +38,16 @@ names(pop_songs)[2] <- "Artist"
 ```
 
 ```{r}
+check_overlap <- function(artist1, artist2) {
+  any(str_detect(artist1, artist2))
+}
+
 
 pop_songs$Artist <- gsub("Beyonc", "Beyoncé", pop_songs$Artist)
 pop_songs$Artist <- gsub("<ef><bf>", "", pop_songs$Artist)
 
 songs <- merge(pop_songs, artist_df, by = "Title", all = FALSE)
-songs <- select(songs,c("Title", "Artist.y", "Date", "bpm", "key", "valence_%", "Lyric"))
+songs <- select(songs,c("Title", "Artist.y", "Artist.x", "Date", "bpm", "key", "valence_%", "Lyric", "in_spotify_charts"))
 
 songs <- songs %>% 
   mutate(Date = as.Date(Date)) %>%
@@ -48,11 +55,22 @@ songs <- songs %>%
          Month = month(Date), 
          Day = day(Date))
 
+songs <- songs[apply(songs[c("Artist.x", "Artist.y")], 1, function(x) check_overlap(x[1], x[2])), ] 
 
-colnames(songs) <- c("Title","Artist", "Date","BPM", "Key", "Valence", "Lyrics", "Year", "Month","Day")
-songs <- select(songs,c("Title", "Artist", "Year","Month","Day", "Lyrics", "BPM", "Key", "Valence"))
+
+```
+
+```{r}
+
+colnames(songs) <- c("Title","Artist.x", "Artist", "Date","BPM", "Key", "Valence", "Lyrics","Charts", "Year", "Month","Day")
+songs <- select(songs,c("Title", "Artist", "Year","Month","Day", "Lyrics", "BPM", "Key", "Valence", "Charts"))
 songs <- na.omit(songs)
 
 ```
 
+```{r}
+write_csv(songs, "songs.csv")
+write_csv(pop_songs, "pop_songs.csv")
+write_csv(artist_df, "compiled_artist.csv")
+```
 
