@@ -1,0 +1,58 @@
+# Load necessary packages
+install.packages("e1071")  # Install e1071 package if not already installed
+library(e1071)
+
+# Load the dataset
+spotify_data <- read.csv("C:/Users/cat78/Downloads/pop_songs.csv")
+
+# Check for missing "streams" values and convert to numeric
+spotify_data <- spotify_data %>%
+  filter(!is.na(streams)) %>%
+  mutate(streams = as.numeric(as.character(streams)))
+
+# Calculate the 80th percentile of streams, ignoring missing values
+threshold <- quantile(spotify_data$streams, 0.8, na.rm = TRUE)
+
+# Print the calculated threshold
+print(paste("80th Percentile of Streams (excluding NA values):", threshold))
+
+# Create a new dataframe with the binary classifier column
+spotify_data_binary <- spotify_data %>%
+  arrange(desc(streams)) %>%
+  mutate(popular_binary = ifelse(row_number() <= nrow(spotify_data) * 0.2, "popular", "not popular"))
+
+# Convert popular_binary to factor
+spotify_data_binary$popular_binary <- as.factor(spotify_data_binary$popular_binary)
+
+# Split new dataframe into training and testing sets
+set.seed(123)
+train_index <- sample(nrow(spotify_data_binary), 0.8 * nrow(spotify_data_binary))
+train_data <- spotify_data_binary[train_index, ]
+test_data <- spotify_data_binary[-train_index, ]
+
+# Update column names by removing special characters (%) if needed
+# Ensure correct column names in the SVM formula
+# Assuming the correct column names are 'danceability_%', 'valence_%', 'energy_%'
+# Replace % with appropriate characters in column names for the SVM formula
+colnames(train_data) <- gsub("%", "", colnames(train_data))
+
+# Train the SVM model with updated column names
+svm_formula <- as.formula("popular_binary ~ danceability_. + valence_. + energy_.")
+svm_model <- svm(svm_formula, data = train_data, kernel = "linear", cost = 10)
+
+# Make predictions on test data
+predictions <- predict(svm_model, test_data)
+
+# Subset predictions to match the length of test_data
+predictions <- predictions[1:nrow(test_data)]
+
+# Create a valid confusion matrix
+conf_matrix <- table(predictions, test_data$popular_binary)
+
+# Calculate accuracy
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+print(paste("Accuracy:", round(accuracy * 100, 2), "%"))
+
+# Display confusion matrix
+print("Confusion Matrix:")
+print(conf_matrix)
