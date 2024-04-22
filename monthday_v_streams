@@ -1,0 +1,58 @@
+```{r}
+library(Metrics)
+library(e1071)
+library(ggplot2)
+```
+
+
+```{r}
+colnames(pop_songs) <- c("Title", "Artist", "Artist_Count", "Year", "Month", "Day", "spotifyPlaylist", "spotifyCharts", "Streams", "applePlaylist","appleCharts", "deezerPlaylist", "deezerCharts", "shazamCharts", "bpm", "key", "mode", "dance", "valence", "energy", "acousticness", "instrumentalness", "liveness", "speech" )
+
+
+data <- pop_songs
+data <- data %>% filter(Streams != "BPM110KeyAModeMajorDanceability53Valence75Energy69Acousticness7Instrumentalness0Liveness17Speechiness3")
+
+data$Streams <- as.numeric(data$Streams)
+
+
+
+data <- na.omit(data)
+set.seed(123)
+  randIndex <- sample(1:dim(data)[1])
+  
+  cutpoint <- floor(2*dim(data)[1]/3)
+  
+  training <- data[randIndex[0:cutpoint],]
+  testing <- data[randIndex[(cutpoint):nrow(data)],]
+  
+
+
+```
+
+
+```{r}
+## linear regression model
+lm_model <- lm(spotifyCharts ~ spotifyPlaylist+bpm+Streams+mode+, data = training)
+lm_pd <- predict(lm_model, data = testing)
+lm_rmse <- rmse(testing$spotifyCharts, lm_pd)
+accuracy <- 100 - lm_rmse 
+```
+```{r}
+month_v_streams <- ggplot(data, aes(as.factor(Month), Streams))+
+  geom_boxplot()+
+  ggtitle("Month vs Streams")+
+  xlab("Month")+
+  theme_light()
+
+                          
+day_v_streams <- ggplot(data, aes(as.factor(Day), Streams))+
+  geom_boxplot()+
+  ggtitle("Day vs Streams")+
+  xlab("Day")+
+  theme_light()
+
+
+
+```
+
+
